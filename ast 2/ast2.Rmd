@@ -1,0 +1,126 @@
+---
+title: "ast2"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+awards <- read.csv("awards.csv")
+attach(awards)
+library(ggplot2)
+library(Matrix)
+```
+
+
+##A6.(a) 
+####$\beta_0$ is 0.00482.  $\beta_1$is 1.09 with a 95% confidence interval of [1.069,1.111]. $\beta_1$ is significant as per the summary table, so math is a significant predictor. The model suggests that as a students math score increases by one point, the expected number of awards the student will receive increases by 1.09.
+
+```{r}
+mod1<-glm(numawards~1+math, family = poisson(link = log))
+summary(mod1)
+se<-coef(summary(mod1))[2,2]
+i<-as.numeric(coef(mod1)[2])
+ci.lower<-i-1.96*se
+ci.lower<-exp(ci.lower)
+ci.upper<-i+1.96*se
+ci.upper<-exp(ci.upper)
+beta1<-exp(as.numeric(coef(mod1)[2]))
+beta0<-exp(as.numeric(coef(mod1)[1]))
+x <- cbind(ci.lower, beta1, ci.upper)
+print(x)
+
+```
+
+##A6.(b)
+#### The model has three paramters, "academic", "vocational" and "general" which is the intercept. Only the intercept and "Academic" are statistically significant. 
+```{r, echo=FALSE}
+mod2<-glm(numawards~as.factor(prog), family = poisson(link = log), x = TRUE)
+summary(mod2)
+```
+To determine if prog is significant or not we need to test whether $\beta_0, \beta_1$ and $\beta_2$ are significant or not. To do so we test the hypothesis that $\beta_0 = \beta_1 = \beta_2 = 0$. The Wald statistic is computed as
+```{r}
+I <- t(mod2$x)%*%diag(mod2$weights)%*%mod2$x
+beta<- as.numeric(coef(mod2))
+beta<-matrix(beta)
+Wald<-t(beta)%*%I%*%beta
+print(Wald)
+
+```
+To test whether the wald statistics is significant we make use of its $\chi^2$ distribution with $\nu = rank(beta)$ degrees of freedeom: 
+```{r}
+nu <- as.numeric(rankMatrix(beta))
+pchisq(Wald, df = nu, lower = FALSE)
+```
+Since the p-value is less than 5%, we reject the null hypothesis that prog is not significant. 
+
+To make use of the likelihood ratio test we compare this model with a simpler model that only contains the intercept.
+```{r}
+modSimple<-glm(numawards~1, family = poisson(link = log), x = TRUE)
+```
+
+and compare it to mod2 using the deviance:
+```{r, echo=FALSE}
+anova(modSimple,mod2, test = "Chi")
+```
+Again we find that prog is significant. 
+
+##A6.(c)
+
+```{r, echo=FALSE, include=FALSE}
+mod3<-glm(numawards~1+math + as.factor(prog), family = poisson(link = log), x = TRUE)
+mod4<-glm(numawards~1+math*as.factor(prog), family = poisson(link = log), x = TRUE)
+summary(mod3)
+summary(mod4)
+```
+####  $numawards ~ 1 + math + as.factor(prog)$ has four parameters. This model is interpreted as: As a students math score increases by one point, its expected awards received will increase by 1.07. The factor variables can be interpreted as the mean number of awards won by students in the general, academic and vocational programs respectively. That is a student in the general program will be expected to receive .005 awards, a student in the academic program wil be expected to receive 2.9 (.005+2.95) awards, and a vocational student is expected to receive 1.45 (.005+1.447) awards.
+
+```{r}
+print(exp(coef(mod3)))
+```
+
+####$numawards ~ 1 + math*as.factor(prog)$ has six parameters. This model is interpreted as an extension of the first model (obviously with different numbers) except now it has two interaction terms. These interaction terms suggest that for a student enrolled in the academic program, their expected number of awards received is $\beta_{general} +\beta_{academic} + math + math:academic$ ;  which is on average they will receive .66 (.02+.64) awards, and for every one point they receive on ther math score they will also receive 1.04 more awards, and 1.02 more awards for every one point they receive on their math score given that they are in the academic program. A similar interpretation for the vocational students.
+
+
+```{r}
+print(exp(coef(mod4)))
+```
+
+
+
+##A6.(d)
+
+I plot mod1 in red.
+
+```{r, echo=FALSE}
+bins<-cut(math, quantile(math,prob = c(0:9)/9), include.lowest = T)
+mathCount<-split(awards, bins)
+
+
+d<- seq(from=30, to=75, by = 5)
+b1<-as.numeric(coef(mod1))
+hat1<-exp(b1[1]+d*b1[2])
+plot(math,numawards)
+lines(d, hat1, col = "red")
+b2<-as.numeric(coef(mod2))
+```
+
+##A6.(e)
+
+#### $H_0$: mod2 is an adequate simplification of mod3.
+```{r, echo=F}
+stat<- deviance(mod2) -deviance(mod3)
+df = length(coef(mod3)) - length(coef(mod2))
+print("p-value")
+pchisq(stat, df = df, lower.tail = FALSE)
+
+```
+#### the p-value is small, and thus mod2 is not an adequate simplification over mod3. prog is significant.
+
+####Now we test $H_0$: mod3 is an adequate simplification of mod4.
+
+```{r, echo=F}
+stat<- deviance(mod3) -deviance(mod4)
+df = length(coef(mod4)) - length(coef(mod3))
+print("p-value")
+pchisq(stat, df = df, lower.tail = FALSE)
+```
+#### the p-value is large; thus mod3 is an adequate simplification over mod4. Thus mod3 is the best model at fitting the data. Hence, numawards is independent of math score, given type of education program. 

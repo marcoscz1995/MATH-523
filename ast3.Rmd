@@ -1,0 +1,379 @@
+---
+title: "Assignment 3"
+author: "Marcos Cardenas-Zelaya"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(catdata)
+data(foodstamp)
+LMI <- log(foodstamp[,4]+1)
+foodstamp <- cbind.data.frame(foodstamp,LMI)
+attach(foodstamp)
+
+```
+
+$A9.a$
+```{r}
+
+```
+
+
+```{r, include = T, echo = F}
+ncat<-10
+#split the datas
+dataTen0<-foodstamp[which(TEN==0), ]
+dataTen1<-foodstamp[which(TEN==1), ]
+dataSup0<-foodstamp[which(SUP==0), ]
+dataSup1<-foodstamp[which(SUP==1), ]
+
+
+#bins
+binsT0<-cut(dataTen0$LMI,quantile(dataTen0$LMI,prob=c(0:ncat)/ncat),include.lowest=T)
+binsT1<-cut(dataTen1$LMI,quantile(dataTen1$LMI,prob=c(0:ncat)/ncat),include.lowest=T)
+binsS0<-cut(dataSup0$LMI,quantile(dataSup0$LMI,prob=c(0:ncat)/ncat),include.lowest=T)
+binsS1<-cut(dataSup1$LMI,quantile(dataSup1$LMI,prob=c(0:ncat)/ncat),include.lowest=T)
+
+#stamp counts
+stamp_countT0<-split(dataTen0$y, binsT0)
+stamp_countT1<-split(dataTen1$y, binsT1)
+stamp_countS0<-split(dataSup0$y, binsS0)
+stamp_countS1<-split(dataSup1$y, binsS1)
+
+par(mfrow=c(1,2))
+
+#props
+propsT0 <- as.numeric(lapply(stamp_countT0,FUN=function(x){sum(x)/length(x)}))
+propsT1 <- as.numeric(lapply(stamp_countT1,FUN=function(x){sum(x)/length(x)}))
+propsS0 <- as.numeric(lapply(stamp_countS0,FUN=function(x){sum(x)/length(x)}))
+propsS1 <- as.numeric(lapply(stamp_countS1,FUN=function(x){sum(x)/length(x)}))
+
+#LMI means
+LMI.meansT0 <- as.numeric(lapply(split(dataTen0$LMI,binsT0),mean))
+LMI.meansT1 <- as.numeric(lapply(split(dataTen1$LMI,binsT1),mean))
+LMI.meansS0 <- as.numeric(lapply(split(dataSup0$LMI,binsS0),mean))
+LMI.meansS1 <- as.numeric(lapply(split(dataSup1$LMI,binsS1),mean))
+
+
+```
+
+```{r, echo = F}
+plot(LMI.meansT0,propsT0,pch=20,col="red")
+lines(LMI.meansT1, propsT1, col = "green")
+title(main = " Prop vs LMI ({red,green} is Ten = {0,1})")
+```
+
+```{r, echo = F}
+plot(LMI.meansS1,propsS1,pch=20,col="red")
+lines(LMI.meansS0, propsS0, col = "green")
+title(main = " Prop vs LMI ({red,green} is Sup = {1,0})")
+```
+
+From these plots we see that the proportion of those receiving food stamps who are on tenancy is much higher, across LMI, than for those not on  tenancy.However, for both tenancy levels we see that the proportions fall as LMI increases. Likewise, we see that the proportion of those receiving food stamps who receive supplementary income is much higher across LMI than those who do not. Further, for both supplementary income levels we see that the proportion falls as LMI increases.
+
+$b)$
+
+Models to be tested.
+
+```{r}
+m1<-glm(y~LMI, family = binomial)
+m2<-glm(y~TEN+LMI, family = binomial)
+m3<-glm(y~TEN+SUP, family = binomial)
+m4<-glm(y~TEN+LMI+SUP, family = binomial)
+m5<-glm(y~TEN+LMI+SUP+LMI:SUP+SUP:TEN+LMI:TEN, family = binomial)
+m6<-glm(y~LMI*SUP*TEN, family = binomial)
+
+
+```
+
+
+```{r}
+#Comparing m1 and m2.
+# we find that TEN is significant
+anova(m1,m2,test="Chi")
+
+
+#Comparing m1 and m3.
+# we find that SUP is significant
+anova(m1,m3,test="Chi")
+
+#Comparing m2 and m4.
+# we find that SUP is not significant
+anova(m2,m4,test="Chi")
+
+#Comparing m3 and m4.
+# we find that LMI is not significant
+anova(m3,m4,test="Chi")
+
+#Compare m2 and m3.
+#m3 has the lower AIC so we prefer m3 over m2.
+AIC(m2)
+AIC(m3)
+
+
+#Compare m3 and m5
+#we find that m3 is preffered.
+anova(m3,m5,test="Chi")
+
+#Comparing AIC's we find that m3 is still preferred.
+AIC(m5)
+AIC(m3)
+
+#Compare m3 and m6
+#we find that m3 is preffered.
+anova(m3,m6,test="Chi")
+
+#Comparing AIC's we find that m3 is still preferred.
+AIC(m6)
+AIC(m3)
+
+```
+
+After comparring all of the models we find that m3 is the preffered model. $m3: y = TEN+SUP$
+
+```{r, echo=F}
+summary(m3)
+```
+
+m3 is interpretted as the odds of receiving foodstamps increases for tenants and those receiving supplementary income. 
+
+```{r, echo=F}
+m3<-glm(y~TEN+SUP, family = binomial)
+beta3 <- coefficients(m3)
+prob3 <- exp(beta3[1]+sort(TEN)*beta3[2]+sort(SUP)*beta3[3])/(1+exp(beta3[1]+sort(TEN)*beta3[2]+sort(SUP)*beta3[3]))
+
+plot(TEN,y,pch=1)
+lines(sort(TEN),prob3,col="red")
+
+
+```
+
+We find that as levels of TEN increase, the number of food stamps received falls, which is in line with the conclusions from part a.
+
+$c)$
+
+```{r, echo = F}
+roc.curve <- function(y,pred){
+	p <- seq(from=0,to=1,by=0.01)
+	out <- matrix(ncol=2,nrow=length(p))
+	for(i in 1:length(p)){
+	y.hat <- as.numeric(pred>p[i])
+	tmp <- cbind(y,y.hat)
+	I1 <- as.numeric(y==1)
+	I2 <- as.numeric(y.hat==1)
+	a <- sum(I1*I2)
+	b <- sum(I1*(1-I2))
+	c <- sum((1-I1)*I2)
+	d <- sum((1-I1)*(1-I2))
+	sens <- a/(a+b)
+	spec <- d/(c+d)
+	out[i,1] <- 1-spec
+	out[i,2] <- sens
+	}
+	out
+}
+
+
+m4<-glm(y~TEN+LMI+SUP, family = binomial)
+m6<-glm(y~LMI*SUP*TEN, family = binomial)
+
+pred4 <- predict(m4,type="response")
+pred6 <- predict(m6,type="response")
+
+roc.m4 <- roc.curve(y,pred4)
+roc.m6 <- roc.curve(y,pred6)
+
+plot(roc.m4,type="l",xlab="x",ylab="y",main="ROC curves for Food Stamps data",col="red")
+lines(roc.m6,col="blue")
+lines(c(0,1),c(0,1),lty=3)
+
+```
+
+The ROC curves for models m4(red) and m6(blue), where 
+$m4: y = LMI+TEN+SUP$ and $m6: y = LMI*TEN*SUP$.
+It is hard to tell which model has the better predictive power as both curves almost overlap eachother, and thus area under the ROC curves are about the same. 
+
+
+$d)$
+
+```{r}
+m<-glm(y~TEN, family = binomial)
+
+ncat<-10
+
+bins<-cut(LMI,quantile(LMI,prob=c(0:ncat)/ncat),include.lowest=T)
+
+stamp_count<-split(y, bins)
+
+observed <- lapply(stamp_count,FUN=function(x){c(sum(x),length(x)-sum(x))})
+
+observed <- matrix(as.numeric(unlist(observed)),ncol=2,byrow=TRUE)
+
+beta <- coefficients(m)
+
+fitted <- lapply(split(LMI,bins),FUN=function(x){
+pi <- exp(beta[1]+x*beta[2])/(1+exp(beta[1]+x*beta[2]))
+c(sum(pi),sum(1-pi))
+} )
+
+fitted <- matrix(as.numeric(unlist(fitted)),ncol=2,byrow=TRUE)
+
+
+X.2 <- sum(((observed-fitted)^2)/fitted)
+X.2
+
+pchisq(X.2,df=ncat-2,lower.tail=FALSE)
+
+
+```
+
+The p-value given from the X.2 statistic is 0, thus the fit of this model is adequate.
+
+$e)$
+
+Observation 5 has zero entries across all depenedent and independent variables. Obs.5 could be some sort of anomoly such as a bad entry into the data; or, if we follow what the trends suggest, obs.5 should receive food stamps due to their low LMI however they dont, which suggests this individual could be doing something that is not persistent with the behaviours of the other entries thus making it an observation that cannot be captured by these models. Obs.66 has a high LMI yet receives food stamps which is not consistent with the data as the proportion of those receiving food stamps falls with LMI. This observation could be an anomolly such as an individual with a high LMI that behaves much differently from its rich counterparts and thus requires food stamps, this different behaviour cannot be captured by this model.
+
+```{r,error=F}
+df<-foodstamp[-c(5,66), ] 
+```
+
+```{r, error=F, warning=F}
+
+
+m12<-glm(df$y~df$LMI, family = binomial)
+m22<-glm(df$y~df$TEN+df$LMI, family = binomial)
+m32<-glm(df$y~df$TEN+df$SUP, family = binomial)
+m42<-glm(df$y~df$TEN+df$LMI+df$SUP, family = binomial)
+m52<-glm(df$y~df$TEN+df$LMI+df$SUP+df$LMI:df$SUP+df$SUP:df$TEN+df$LMI:df$TEN, family = binomial)
+m62<-glm(df$y~(df$LMI)*(df$SUP)*(df$TEN), family = binomial)
+
+#Comparing m12 and m22.
+# we find that TEN is significant
+anova(m12,m22,test="Chi")
+
+
+#Comparing m12 and m32.
+# we find that SUP is significant, although not as significant when the outliers were present in the data.
+anova(m12,m32,test="Chi")
+
+
+#Compare m22 and m32.
+#m22 has the lower AIC so we prefer m22 over m32. This is the opposite conclusion made in part (b).
+AIC(m22)
+AIC(m32)
+
+
+#Compare m22 and m42
+#we find that SUP is not significant.
+anova(m22,m42,test="Chi")
+
+#Compare m22 and m52
+#we find that m22 is preffered.
+anova(m22,m52,test="Chi")
+
+#Comparing AIC's we find that m22 is still preferred.
+AIC(m52)
+AIC(m22)
+
+#Compare m22 and m62
+#we find that m32 is preffered.
+anova(m22,m62,test="Chi")
+
+#Comparing AIC's we find that m22 is still preferred.
+AIC(m62)
+AIC(m22)
+```
+
+We find that $m22: y= TEN+LMI$ is the preferred model for this reduced data set. 
+
+
+The diagnostic plot suggests that proportion of those receiving food stamps falls as LMI increases. 
+
+```{r, echo=F}
+m22<-glm(df$y~df$TEN+df$LMI, family = binomial)
+beta22 <- coefficients(m22)
+prob22 <- exp(beta22[1]+sort(df$TEN)*beta22[2]+sort(df$LMI)*beta22[3])/(1+exp(beta22[1]+sort(df$TEN)*beta22[2]+sort(df$LMI)*beta22[3]))
+
+plot(df$LMI,df$y,pch=1, xlab = "LMI", ylab = "y" ,main ="Receiving Food stamps vs. LMI")
+lines(sort(df$LMI),prob22,col="red")
+```
+
+I plotted the ROC curves for m22(red) and m3(blue) from part(b). The ROC curve suggests that model m22 has a better predictive power, because the area underneath the ROC curve is bigger. Indeed, even on its own, m22's ROC curve suggests that it has a strong predictive power.
+
+```{r, echo=F}
+
+roc.curve <- function(y,pred){
+	p <- seq(from=0,to=1,by=0.01)
+	out <- matrix(ncol=2,nrow=length(p))
+	for(i in 1:length(p)){
+	y.hat <- as.numeric(pred>p[i])
+	tmp <- cbind(y,y.hat)
+	I1 <- as.numeric(y==1)
+	I2 <- as.numeric(y.hat==1)
+	a <- sum(I1*I2)
+	b <- sum(I1*(1-I2))
+	c <- sum((1-I1)*I2)
+	d <- sum((1-I1)*(1-I2))
+	sens <- a/(a+b)
+	spec <- d/(c+d)
+	out[i,1] <- 1-spec
+	out[i,2] <- sens
+	}
+	out
+}
+
+pred22 <- predict(m22,type="response")
+pred31 <- predict(m3,type="response")
+
+roc.m22 <- roc.curve(df$y,pred22)
+roc.m31 <- roc.curve(foodstamp$y,pred31)
+
+plot(roc.m22,type="l",xlab="x",ylab="y",main="ROC curves for Food Stamps data",col="red")
+lines(roc.m31,col="blue")
+lines(c(0,1),c(0,1),lty=3)
+```
+
+
+
+```{r, echo=F}
+m22<-glm(df$y~df$TEN+df$LMI, family = binomial)
+
+ncat<-10
+
+bins<-cut(df$LMI,quantile(df$LMI,prob=c(0:ncat)/ncat),include.lowest=T)
+
+stamp_count<-split(df$y, bins)
+
+observed <- lapply(stamp_count,FUN=function(x){c(sum(x),length(x)-sum(x))})
+
+observed <- matrix(as.numeric(unlist(observed)),ncol=2,byrow=TRUE)
+
+beta <- coefficients(m22)
+
+fitted <- lapply(split(df$LMI,bins),FUN=function(x){
+pi <- exp(beta[1]+x*beta[2])/(1+exp(beta[1]+x*beta[2]))
+c(sum(pi),sum(1-pi))
+} )
+
+fitted <- matrix(as.numeric(unlist(fitted)),ncol=2,byrow=TRUE)
+
+
+X.2 <- sum(((observed-fitted)^2)/fitted)
+
+pchisq(X.2,df=ncat-2,lower.tail=FALSE)
+
+```
+
+The p-value given from the X.2 statistic is very low, thus the fit of this model is adequate.
+
+```{r, echo=F}
+summary(m22)
+```
+
+All the variables are significant. Further, the model suggests that as TEN level increases, the odds of receiving food stamps drops by a factor of 2.13. And as LMI increases by one unit, the odds of receiving food stamps drops by a factor of 1.4. 
+
+$f)$
+
+This data, coupled with model m22, suggests that as an individuals income increases the odds that that person will use food stamps fill fall. Further, if that person is on tenancy, the impact on whther they will use food stamps is ambiguous, in some cases they will use food stamps, and in others they will not as a person uses tenancy. However the raw data suggests that as one uses tenancy then one is most likely to use foods stamps. Although, when accounting for outliers, the opposite is true as per model
+
+

@@ -1,0 +1,286 @@
+---
+title: "Assignment 4"
+author: "Marcos Cardenas-Zelaya"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(nnet)
+library(VGAM)
+
+```
+
+####A10
+
+```{r, echo=F}
+knitr::include_graphics("1.jpg")
+```
+
+```{r, echo=F}
+knitr::include_graphics("2.jpg")
+```
+
+```{r, echo=F}
+
+knitr::include_graphics("3.jpg")
+```
+
+####A11
+
+######a)
+
+To find the fitted probabilities I transformed the data so as to make use of vglm's fitted() function. The fitted portability are: 
+
+```{r, echo=F, eval=F}
+Y<- cbind(c(28,4,41,12),c(45,12,44,7),c(29,5,20,3),c(26,2,20,1))
+y1<-c(28,4,41,12)
+y2<-c(45,12,44,7)
+y3<-c(29,5,20,3)
+y4<-c(26,2,20,1)
+colnames(Y)<-c("ProgressiveDisease","NoChange","PartialRemission","CompleteRemission")
+therapy <- factor(c("S","S","A","A"), levels = c("S","A"))
+therapy1<-factor(c("S","A"), levels = c("S","A"))
+y11<-c(32,57,34,28)
+y22<-c(53,51,23,21)
+gender <- factor(rep(c("M","F"),2), levels = c("M","F"))
+df<-data.frame(cbind(therapy, gender, Y))
+df1<-data.frame((cbind(therapy, y1,y2,y3,y4)))
+
+y5<-c(28+4,45+12,29+5,26+2)
+y6<-c(41+12,44+7,20+3,20+1)
+
+y11<-c(28+4,41+12)
+y22<-c(45+12,44+7)
+y33<-c(29+5,20+3)
+y44<-c(26+2,21)
+thr<-c(1,2) #1 is Seq, 2 is Alt
+
+df2<-data.frame((cbind(thr, y11,y22,y33,y44)))
+
+m1<- multinom(Y~therapy)
+m2<-vglm(cbind(y22,y33,y44, y11)~thr, family = multinomial, data = df2) #ProgressiveDisease = 1 is baseline category
+
+summary(m1)
+summary(m2)
+beta <- coefficients(m1)
+
+#fitted probabilites
+
+fitted(m2)
+
+
+```
+
+```{r}
+y11<-c(28+4,41+12)
+y22<-c(45+12,44+7)
+y33<-c(29+5,20+3)
+y44<-c(26+2,21)
+thr<-c(1,2)
+df2<-data.frame((cbind(thr, y11,y22,y33,y44)))
+m2<-vglm(cbind(y22,y33,y44, y11)~thr, family = multinomial, data = df2)
+fit<-data.frame(fitted(m2), row.names = c("Alternating", "Sequential"))
+names(fit) <- c("No Change" ,"Partial Remission"  ,"Complete Remission"  , "Progressive Disease" )
+fit
+
+```
+
+
+Let $x_{i1} = 1$ and $x_{i1}=0$ when the therapy is alternating and sequential, respectively. The log odds ratio is given by $$log(\frac{\pi_{i1}}{\pi_{i2}}| x_{i1}=1)-log(\frac{\pi_{i1}}{\pi_{i2}}| x_{i1}=0)=\beta_{1}^{T}=0.6157821,$$ 
+so that the odds of a response being "Progressive Disease" are $exp({\beta_{1}^{T}})=1.851104$ times higher of an individual who received Sequential therapy over Alternating.
+
+The 95% confidence interval is
+
+```{r, echo=F}
+y1<-c(28,4,41,12)
+y2<-c(45,12,44,7)
+y3<-c(29,5,20,3)
+y4<-c(26,2,20,1)
+therapy <- factor(c("S","S","A","A"), levels = c("S","A"))
+m5<- multinom(cbind(y2, y1,y3,y4)~therapy, trace="FALSE")
+beta <- coef(m5)
+se <- summary(m5)$standard.errors
+CI.u <- exp(beta[1,2]+ 1.96*se[1,2])
+CI.l <- exp(beta[1,2]- 1.96*se[1,2])
+d<-cbind(CI.l,CI.u)
+cat("95% CI:" , "(", d[1], "," , d[2] , ")")
+
+```
+
+######b)
+
+The cumulative log odds ratio is
+$$logit[P(y_i \leq j |x_{i1})=1] - logit[P(y_i \leq j | x_{i1}=0)] = \beta_{1}^T = 0.5699.$$
+Thus, with alternating therapy, the estimated odds ratio of the treatment response below any fixed level is $e^{0.5699}=1.76809$ times the estimated odds with sequential therapy.
+
+The 95% confidence interval is 
+
+
+```{r, echo=F}
+Y<- cbind(c(28,4,41,12),c(45,12,44,7),c(29,5,20,3),c(26,2,20,1))
+colnames(Y)<-c("ProgressiveDisease","NoChange","PartialRemission","CompleteRemission")
+therapy <- factor(c("S","S","A","A"), levels = c("S","A")) #s = 1, A = 2
+
+gender <- factor(rep(c("M","F"),2), levels = c("M","F"))
+
+m3<-vglm(Y~therapy,propodds(reverse=F))
+
+beta<-coef(m3)
+se<-coef(summary(m3))[, 2]
+
+CI.u <- exp(beta[4]+ 1.96*se[4])
+CI.l <- exp(beta[4]- 1.96*se[4])
+d <- cbind(CI.l,CI.u)
+cat("95% CI:" , "(", d[1], "," , d[2] , ")")
+
+
+```
+
+######c)
+
+```{r, }
+mB1<- multinom(Y~therapy, trace = "FALSE")
+mB2<- multinom(Y~therapy+gender, trace = "FALSE")
+stat <- deviance(mB1) -deviance(mB2)
+df <- mB2$edf - mB1$edf
+cat("p-value:", pchisq(stat,df=df,lower.tail=FALSE))
+
+```
+
+i) We test the hypotheses that mB1 is an adequate simplification of mB2. The $p$-value is large, and so mB1 is adequate. Hence, gender should not be included in the baseline category logit model.
+
+```{r}
+mC1<-vglm(Y~therapy,propodds(reverse=F))
+mC2<-vglm(Y~therapy+gender,propodds(reverse=F))
+stat <- deviance(mC1) -deviance(mC2)
+cat("p-value:", pchisq(stat,df=5,lower.tail=FALSE))
+```
+ii) Similary, the large $p$-value indicates that gender should not be included in the cumulative logit model either.
+
+####A12
+
+######a)
+
+
+```{r, echo=F}
+Y <- c(76,160,6,25,114,181,11,48)
+G <- factor(c("M","M","M","M","F","F","F","F"),levels=c("M","F"))
+I <- factor(c("Yes","Yes","No","No","Yes","Yes","No","No"),levels=c("Yes","No"))
+H <- factor(c("Yes","No","Yes","No","Yes","No","Yes","No"),levels=c("Yes","No"))
+GSS <- data.frame(cbind(Y,G,I,H))
+
+```
+
+Fit the possible models.
+
+```{r, echo=F}
+m0 <- glm(Y~1,family=poisson)
+m1 <- glm(Y~G,family=poisson)
+m2 <- glm(Y~I,family=poisson)
+m3 <- glm(Y~H,family=poisson)
+m4 <- glm(Y~I+G+H,family=poisson)
+
+m5 <- glm(Y~I+G+H + G:I,family=poisson)
+m6 <- glm(Y~ I+G+H + G:H,family=poisson)
+m7 <- glm(Y~I+G+H+H:I +I:H,family=poisson)
+
+m8 <- glm(Y~I+G+H+ H:I +I:G,family=poisson)
+m9 <- glm(Y~I+G+H+ H:I +H:G,family=poisson)
+m10 <- glm(Y~I+G+H+ H:G +I:G,family=poisson)
+m11 <- glm(Y~I+G+H+ H:I +I:G + H:G,family=poisson)
+
+m12 <- glm(Y~I*H*G,family=poisson)
+
+```
+
+Test models 8-11,
+
+```{r}
+round(c(deviance(m11),deviance(m10),deviance(m9),deviance(m8)),2) #deviances
+c(m11$df.residual,m10$df.residual,m9$df.residual,m8$df.residual) #degrees of freedom
+```
+
+The homogenous association model m11 has deviance of .3 on 1 degree of freedom. The associated $p$-value is 
+
+```{r}
+d<-anova(m11,m12,test="Chi")
+cat("p-value:", d[2,5])
+```
+
+and so m11 is an adequate simplification of m12, the saturated model. Further, removing one interaction term from m11 results with rather large deviances, so models m8-m10 are not adequate. 
+
+Now we compare model m11 with the rest m5-m7,
+
+```{r}
+round(c(deviance(m11),deviance(m7),deviance(m6),deviance(m5)),2)
+c(m11$df.residual,m7$df.residual,m6$df.residual,m5$df.residual)
+```
+
+m11 is still better. Now we compare it with m2-m4,
+
+```{r}
+round(c(deviance(m11),deviance(m4),deviance(m3),deviance(m2)),2)
+c(m11$df.residual,m4$df.residual,m3$df.residual,m2$df.residual)
+```
+
+mll is still better. Now we compare it with m1, 
+
+```{r}
+round(c(deviance(m11),deviance(m1)),2)
+c(m11$df.residual,m1$df.residual)
+```
+
+Again, m11 is the best model. And so we chose m11 as our model.
+
+```{r}
+summary(m11)
+```
+
+In this model, the odds ration for any two main effects given the level of the third is the same at each level of the third predictor. 
+
+######b)
+
+The log odds ratio is given as $log (\theta_{HI}) = 0.87239$, with the odds ratio being $exp(0.87239)=2.392622$. This means that the odds that the respondent agrees with H is about 2.39 times higher when they agree with I. 
+
+The 95% confidence interval is
+
+```{r, echo=F}
+mod <- glm(Y~H+I+G+H:I+I:G,family=poisson)
+summary(mod)
+beta<-coef(mod)
+se<-coef(summary(mod))[, 2]
+
+CI.u <- exp(beta[5]+ 1.96*se[5])
+CI.l <- exp(beta[5]- 1.96*se[5])
+d<-cbind(CI.l,CI.u)
+
+cat("95% CI:" , "(", d[1], "," , d[2] , ")")
+```
+
+Let $i \in H, j \in I, k \in G$. The odds ratio independent of gender since gender is eliminated in the in the algebra of $$log (\theta_{HI}) = log({\frac{\mu_{11k}}{\mu_{21k}}/ \frac{\mu_{12k}}{\mu_{22k}}})$$ and results with 
+$\lambda_{22}^{HI}$ which is independent of gender.
+
+######c)
+
+Let $i \in H, j \in I, k \in G$. It is the model $$logit(\pi_{jk}) = \alpha + \beta_j^I$$
+We see that, $$logit(\pi_{jk}) = log({\frac{\mu_{1jk}}{\mu_{2jk}}}) = \lambda +\lambda_k^G + \lambda_j^I + \lambda_{jk}^{IG} - \lambda - \lambda_j^H - \lambda_k^G - \lambda_j^I - \lambda_{jk}^{IG} - \lambda_{ij}^{HI} = -\lambda_{i}^{H}-\lambda_{ij}^{HI}$$
+which is just $1+I$.
+
+The models are different in the number of parameters.
+
+```{r}
+
+Y1 <- cbind(c(160,25,181,48),c(76,6,114,11))
+G1 <- factor(c("M","M","F","F"),levels=c("F","M"))
+I1 <- factor(c("Y","N","Y","N"),levels=c("N","Y"))
+
+loglinear <- glm(Y~I+G+H+ H:I +I:G,family=poisson)
+logistic<- glm(Y1~I1,family=binomial)
+
+summary(loglinear)
+summary(logistic)
+
+```
+
+
+

@@ -1,0 +1,111 @@
+---
+title: "GLM Assignment 1"
+output: html_document
+---
+
+```{r setup, echo=FALSE, results='hide'}
+library(MASS)
+data(mammals)
+attach(mammals)
+head(mammals) 
+library(ggplot2)
+```
+
+##A3.(a)
+####We first look at the datas summary and plot brain vs body weights.
+```{r, echo=FALSE}
+summary(mammals)
+plot(body, brain,  pch = 20, title(main = "Body weight vs brain weight"))
+abline(lm(brain~body))
+```
+
+####The summary and plot shows that both distibutions are right skewed. As such I take the logs of both variables to normalize the data.
+
+```{r, echo=FALSE}
+plot(log(body), log(brain), pch = 20)
+title(main = " log Body weight vs log brain weight")
+abline(lm(log(brain)~log(body)))
+```
+
+####This is a much more linear looking plot.
+
+```{r}
+linearModel<-lm(log(brain)~log(body))
+
+summary(linearModel)
+```
+
+####The linear model produces an adjusted R-squared value of .92 which is a very good fit. The intercept and log(body) are both statistically significant at the .0001 significance levels. The model suggests that for every 1% increase in body weight, the brain weight increases by about .75%,  $$1.01^{\beta_1} = 1.01^{.75169} = 1.007508 = .75%$$
+
+
+##(b)
+####(i) Both models have the same coefficients and standard errors.
+```{r}
+m1<-lm(brain~body)
+summary(m1)
+m2<-glm(brain~body, family = gaussian(link = "identity"))
+summary(m2)
+```
+
+####(ii) The residual standard error in m1 is 334.7, which is the square root of dispersion paramter from m2.
+
+####(iii) The residual deviance in m2 is the same as the sum of squares residuals in m1. The null deviance is the sum of total sum of squares and sum of squares residuals.
+```{r}
+aov(m1)
+```
+
+
+####(iv)The null deviance shows how well the response variable is predicted by the model that only includes the intercept (M0). The residual deviance, on the other hand, shows how well the response is predicted by the model when the p are included. 
+####Note, $F = \frac{(n-p_1)(RSS(M_0)-RSS(M_1))}{(p_1-p_0)(RSS(M_1))}$ ,and from (iii) we can substitute ${RSS(M_0)}$ as the null deviance from m2 and ${RSS(M_1)}$ as the residual deviance from m2, ${n=62}$, ${p_1}=2$ and ${p_0}=1$ to give us an F-statistic of 411.2.
+
+
+```{r}
+M0<-glm(brain~1, family = gaussian(link = "identity"))
+M1<-glm(brain~body, family = gaussian(link = "identity"))
+anova(M0,M1, test="F")
+#This supports my calculation above.
+```
+
+
+##(c)
+```{r, echo=FALSE}
+m3 <- glm(brain~log(body),family=Gamma(link="log"))
+summary(m3)
+plot(log(body), brain, pch = 20)
+title(main = " log Body weight vs log brain weight")
+```
+
+#### The intercept is 2.36 and the log(body) is .768, both are statistically significant, although the line of best fit suggests otherwise. The model is interpreted as the log of body weight increases by 1 pound, brain weight increases by .768gs. 
+
+##(d) Since m3 has a smaller AIC, it is preferred to m4. The interpretation of m3 is also more intuitive than the inverse link.
+```{r, echo=FALSE, warning=FALSE} 
+m4 <- glm(brain~log(body),family=Gamma(link="inverse"))
+summary(m4)
+
+p<- ggplot( mammals, aes(x=log(body), y=brain)) + geom_point() + geom_smooth(method = 'glm', method.args = list(family = Gamma(link ='inverse')))+ geom_smooth(method = 'glm', col = "red", method.args = list(family = Gamma(link ='log'))) + ggtitle("log(body) vs brain weight")
+
+print(p)
+```
+
+##the red curve is the m3, blue is m4
+
+##(e) Since these two models are different in form, one linear the other a glm, the best way to compare these models is their AIC. Since the linear model has a much lower AIC than m3, it is preferred.
+```{r}
+AIC(linearModel)
+AIC(m3)
+```
+
+##(f) Since the linear model has the best fit, given its lowwer AIC, I trust its predicted value the most of 6.7g's. Further, the m4 prediction appears very off as compared to the other models.
+```{r, echo = FALSE}
+d<-data.frame(body=c(450))
+a<-predict(linearModel, newdata = d)
+b<-predict.glm(m3, newdata = d)
+c<-predict.glm(m4, newdata = d)
+f<-c(a,b,c)
+cat("linear model:" , a)
+
+cat("m3:", b)
+
+cat("m4:", c)
+```
+
